@@ -1,0 +1,62 @@
+name: CI/CD Pipeline
+on:
+  push:
+    branches:
+      - main  # Déclenchement lors d'un push sur la branche main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Copier les fichiers dans le dossier docker
+        run: |
+          cp -r ./scripts ./docker/
+          cp -r ./packages ./docker/
+          cp -r ./src ./docker/
+          cp -r ./gpg ./docker/
+          cp -r ./nginx ./docker/
+          cp -r ./apt-repo ./docker/
+
+      - name: Installation de docker-compose
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update && sudo apt-get install -y docker-compose
+
+      - name: Build de l'image Docker
+        run: docker-compose -f ./docker/docker-compose.yml build
+
+      - name: Démarrer le conteneur Docker
+        run: docker-compose -f ./docker/docker-compose.yml up -d
+
+      - name: Debug - Check Docker container status
+        run: docker ps -a 
+
+      - name: Debug - Check Docker container logs
+        run: docker logs apt-repo   
+
+      - name: Debug - Vérifier les fichiers dans le conteneur
+        run: docker exec apt-repo ls -lah /packages
+
+      - name: Debug - Vérifier la configuration du dépôt
+        run: docker exec apt-repo ls -lah /var/www/html/apt-repo/conf
+
+      - name: Debug - Afficher le fichier distributions
+        run: docker exec apt-repo cat /var/www/html/apt-repo/conf/distributions || echo "File not found"
+
+      - name: Debug - Vérifier les clés GPG et importer si nécessaire
+        run: |
+          docker exec apt-repo gpg --list-keys --keyid-format LONG
+          docker exec apt-repo gpg --import /gpg/private.key
+          docker exec apt-repo gpg --import /gpg/public.key
+
+      - name: Ajouter le paquet au dépôt
+        run: docker exec apt-repo /usr/local/bin/add-package.sh /packages/new-htop.deb
+
+      - name: Signer le paquet dans le dépôt
+        run: docker exec apt-repo /usr/local/bin/sign-package.sh /packages/new-htop.deb
+
+      - name: Mettre à jour le dépôt
+        run: docker exec apt-repo /usr/local/bin/update-repo.sh
