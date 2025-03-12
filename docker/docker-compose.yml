@@ -1,0 +1,16 @@
+version: '3'
+services:
+  apt-repo:
+    container_name: apt-repo
+    build:
+      # Le contexte est le dossier docker qui contient Dockerfile et les fichiers copiés par la CI
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"  # Le port 80 du conteneur est exposé sur le port 8080 de l'hôte
+    volumes:
+      - ./gpg:/gpg                       # Monte le dossier contenant les clés GPG
+      - ./apt-repo:/var/www/html/apt-repo   # Monte le dépôt APT
+      - ./packages:/packages              # Monte le dossier des paquets .deb
+    # Exécute la configuration du dépôt puis démarre Nginx en mode non-démon
+    command: /bin/bash -c "/usr/local/bin/setup-repo.sh && nginx -g 'daemon off;'"
