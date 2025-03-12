@@ -1,25 +1,30 @@
-# Utilise une image de base Ubuntu 20.04, vous pouvez utiliser d'autre comme debian, centos, etc.
-FROM ubuntu:20.04
+FROM debian:bullseye
 
-# Installe les dépendances nécessaires : Nginx, GPG, dpkg-dev, etc.
+# Désactivation du mode interactif pour debconf
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Installation des dépendances nécessaires
 RUN apt-get update && apt-get install -y \
     nginx \
     gnupg2 \
     dpkg-dev \
     apt-utils \
+    reprepro \
+    dpkg-sig \
     && rm -rf /var/lib/apt/lists/*
 
-# Copie les scripts shell dans le conteneur
-COPY scripts/setup-repo.sh /usr/local/bin/setup-repo.sh
-COPY scripts/add-package.sh /usr/local/bin/add-package.sh
-COPY scripts/sign-package.sh /usr/local/bin/sign-package.sh
-COPY scripts/update-repo.sh /usr/local/bin/update-repo.sh
+# Définir le répertoire de travail
+WORKDIR /app
 
-# Rend les scripts exécutables
+# Copie des scripts shell (les fichiers ont été copiés dans le dossier docker via la CI)
+COPY scripts/ /usr/local/bin/
 RUN chmod +x /usr/local/bin/*.sh
+
+# Copie du fichier de configuration Nginx personnalisé
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
 
 # Expose le port 80 pour Nginx
 EXPOSE 80
 
-# Démarre Nginx au lancement du conteneur
+# La commande de démarrage est définie via docker-compose (setup puis nginx)
 CMD ["nginx", "-g", "daemon off;"]
