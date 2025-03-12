@@ -1,0 +1,2 @@
+# Python dependencies
+flask==2.0.1
